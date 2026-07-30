@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chatwoot Widget Test</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #f6f7f9;
+      color: #1a1a1a;
+    }
+    main {
+      max-width: 34rem;
+      padding: 2.5rem;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 .75rem; }
+    p { margin: 0 0 .5rem; line-height: 1.6; color: #444; }
+    code { background: #f0f0f3; padding: .1rem .35rem; border-radius: 4px; font-size: .9em; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #16181d; color: #e8e8ea; }
+      main { background: #1f2229; box-shadow: none; }
+      p { color: #b3b6bd; }
+      code { background: #2a2e37; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Chatwoot widget test</h1>
+    <p>The launcher should appear in the <strong>bottom-right</strong> corner.</p>
+    <p>If it doesn't show up, open the browser console and check for errors loading <code>sdk.js</code>.</p>
+  </main>
+
+  <script>
+    window.chatwootSettings = {"position":"right","type":"standard","launcherTitle":""};
+    (function(d,t) {
+      var BASE_URL="https://app.chatwoot.com";
+      var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+      g.src=BASE_URL+"/packs/js/sdk.js";
+      g.async = true;
+      s.parentNode.insertBefore(g,s);
+      g.onload=function(){
+        window.chatwootSDK.run({
+          websiteToken: 'Rp6ahfgmofbehavaNCbtAqHP',
+          baseUrl: BASE_URL
+        })
+      }
+    })(document,"script");
+  </script>
+</body>
+</html>
