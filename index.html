@@ -29,6 +29,29 @@
     dl { margin: 1.25rem 0 0; font-size: .9rem; }
     dt { font-weight: 600; float: left; clear: left; width: 7rem; color: #666; }
     dd { margin: 0 0 .3rem 7rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    button {
+      margin: 1.25rem .5rem 0 0;
+      padding: .6rem 1.1rem;
+      font: inherit; font-size: .9rem; font-weight: 500;
+      color: #fff; background: #1f2937;
+      border: none; border-radius: 8px; cursor: pointer;
+    }
+    button:hover { background: #374151; }
+    #status {
+      margin-top: 1.5rem;
+      padding: .85rem 1rem;
+      background: #0f172a;
+      color: #cbd5e1;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .78rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      max-height: 13rem;
+      overflow-y: auto;
+    }
+    .ok { color: #4ade80; }
+    .bad { color: #f87171; }
     @media (prefers-color-scheme: dark) {
       body { background: #16181d; color: #e8e8ea; }
       main { background: #1f2229; box-shadow: none; }
@@ -42,11 +65,14 @@
   <main>
     <h1>Chatwoot widget test</h1>
     <p>The launcher should appear in the <strong>bottom-right</strong> corner.</p>
-    <p>If it doesn't show up, open the browser console and check for errors loading <code>sdk.js</code>.</p>
+    <p>The log below shows exactly whether <code>setUser</code> ran — no devtools needed.</p>
     <dl>
       <dt>kitId</dt><dd>12345</dd>
       <dt>name</dt><dd>Lucy</dd>
     </dl>
+    <button id="retry" type="button">Call setUser now</button>
+    <button id="dump" type="button">Dump SDK state</button>
+    <div id="status">initialising…</div>
   </main>
 
   <script>
@@ -64,15 +90,99 @@
         })
       }
     })(document,"script");
+  </script>
 
-    // $chatwoot only exists once the widget has finished loading,
-    // so setUser must wait for the ready event.
+  <script>
+  (function () {
+    var USER_ID = '12345';
+    var ATTRS = { email: 'lucy.g.liang@gmail.com', name: 'Lucy' };
+
+    var el = document.getElementById('status');
+    var t0 = Date.now();
+    var done = false;
+
+    function log(msg, cls) {
+      var line = '[' + String(Date.now() - t0).padStart(5, ' ') + 'ms] ' + msg;
+      var span = document.createElement('span');
+      if (cls) span.className = cls;
+      span.textContent = line + '\n';
+      el.appendChild(span);
+      el.scrollTop = el.scrollHeight;
+      (cls === 'bad' ? console.warn : console.log)('[cw-test]', line);
+    }
+    el.textContent = '';
+    log('page loaded, waiting for Chatwoot SDK…');
+
+    // Single place that actually performs the call, guarded so it only lands once.
+    function attempt(source) {
+      if (done) return true;
+      var cw = window.$chatwoot;
+      if (!cw || typeof cw.setUser !== 'function') return false;
+      try {
+        cw.setUser(USER_ID, ATTRS);
+        done = true;
+        log('setUser CALLED via ' + source + ' (id=' + USER_ID + ')', 'ok');
+        return true;
+      } catch (e) {
+        log('setUser threw via ' + source + ': ' + e.message, 'bad');
+        return false;
+      }
+    }
+
+    // Path 1 — the documented event. Fast when it works.
     window.addEventListener('chatwoot:ready', function () {
-      window.$chatwoot.setUser('12345', {
-        email: 'lucy.g.liang@gmail.com',
-        name: 'Lucy'
-      });
+      log('chatwoot:ready fired', 'ok');
+      attempt('ready event');
     });
+
+    window.addEventListener('chatwoot:error', function () {
+      log('chatwoot:error fired', 'bad');
+    });
+
+    // Path 2 — poll hasLoaded, covering a listener registered too late.
+    // Path 3 — after 8s, call regardless of hasLoaded. The handshake that sets
+    //          hasLoaded can fail while the SDK object is still usable, which is
+    //          the exact case that left the contact uncreated.
+    var ticks = 0;
+    var timer = setInterval(function () {
+      ticks++;
+      var cw = window.$chatwoot;
+
+      if (cw && cw.hasLoaded && attempt('poll/hasLoaded')) {
+        clearInterval(timer);
+        return;
+      }
+      if (ticks === 16 && cw && !cw.hasLoaded) {
+        log('hasLoaded still false at 8s — forcing the call anyway', 'bad');
+        if (attempt('forced/8s')) { clearInterval(timer); return; }
+      }
+      if (ticks >= 60) {
+        clearInterval(timer);
+        if (!done) {
+          log('GAVE UP after 30s. sdkLoaded=' + (typeof window.chatwootSDK !== 'undefined') +
+              ' $chatwoot=' + (!!cw) +
+              ' hasLoaded=' + (cw ? cw.hasLoaded : 'n/a') +
+              ' iframes=' + document.querySelectorAll('iframe').length, 'bad');
+        }
+      }
+    }, 500);
+
+    document.getElementById('retry').addEventListener('click', function () {
+      done = false;
+      if (!attempt('manual button')) {
+        log('manual call failed — $chatwoot not usable yet', 'bad');
+      }
+    });
+
+    document.getElementById('dump').addEventListener('click', function () {
+      var cw = window.$chatwoot;
+      log('sdkLoaded=' + (typeof window.chatwootSDK !== 'undefined') +
+          ' $chatwoot=' + (!!cw) +
+          ' hasLoaded=' + (cw ? cw.hasLoaded : 'n/a') +
+          ' isOpen=' + (cw ? cw.isOpen : 'n/a') +
+          ' iframes=' + document.querySelectorAll('iframe').length);
+    });
+  })();
   </script>
 </body>
 </html>
